@@ -1,4 +1,4 @@
-module log4go
+module github.com/yefy/log4go
 
 go 1.23.9
 

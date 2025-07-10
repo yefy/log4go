@@ -2,9 +2,9 @@ package log4
 
 import (
 	"fmt"
+	"github.com/yefy/log4go/ee"
+	"github.com/yefy/log4go/efile"
 	"io/ioutil"
-	"log4go/ee"
-	"log4go/efile"
 	"runtime"
 	"strings"
 	"sync"

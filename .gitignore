@@ -1,0 +1,36 @@
+# IntelliJ project files
+.idea/*
+.idea
+# visual studio code files
+.vscode
+
+# Rust
+target/*
+target
+libs
+
+# cargo
+.cargo/
+
+# profile
+flamegraph.*
+perf.*
+
+# tests
+*.stderr
+*.stdout
+*.out
+*.swp
+
+# python
+venv/
+logs
+tmp
+sbin
+
+*.pid
+*.log
+*.signal
+*.exe
+*.d
+*.o

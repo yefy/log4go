@@ -1,0 +1,33 @@
+refresh_rate: 10
+appenders:
+  stdout:
+    kind: "console"
+    pattern: "[%U %D %T] [%C] [%L] (%S) %M"
+  file:
+    kind: "file"
+    pattern: "[%U %D %T] [%C] [%L] (%S) %M"
+    path: "./logs/sniffer.log"
+  main:
+    kind: "file"
+    pattern: "[%D %T] [%C] [%L] (%S) %M"
+    path: "./logs/sniffer_main.log"
+
+root:
+  level: trace
+  appenders:
+    #- stdout
+    - file
+
+loggers:
+  main:
+    level: trace
+    additive: true
+    appenders:
+      #- stdout
+      - main
+  test:
+    level: crit
+    additive: true
+
+
+#"fine", "trace", "debug", "info", "warn", "error", "crit"

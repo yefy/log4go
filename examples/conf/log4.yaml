@@ -7,13 +7,13 @@ appenders:
     kind: "file"
     pattern: "[%U %D %T] [%C] [%L] (%S) %M"
     path: "./logs/sniffer.log"
-  main:
+  main_file:
     kind: "file"
     pattern: "[%D %T] [%C] [%L] (%S) %M"
     path: "./logs/sniffer_main.log"
 
 root:
-  level: trace
+  level: info
   appenders:
     #- stdout
     - file
@@ -22,11 +22,11 @@ loggers:
   main:
     level: trace
     additive: true
-    appenders:
+    #appenders:
       #- stdout
-      - main
+      #- main_file
   test:
-    level: crit
+    level: info
     additive: true
 
 

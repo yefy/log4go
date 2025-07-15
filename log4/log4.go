@@ -15,7 +15,9 @@ import (
 )
 
 var defaultRootTarget = "root"
-var defaultDiscardTarget = "discard_root"
+
+// var defaultDiscardTarget = "discard_root"
+var defaultDiscardTarget = defaultRootTarget
 
 var GCtx = NewWaitGroupContext()
 

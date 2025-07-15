@@ -26,13 +26,13 @@ func doMain() error {
 		return ee.New(err, "log4.InitFile")
 	}
 
-	var count int
-	flag.IntVar(&count, "count", 100000, "count")
-	flag.Parse()
-
 	defer func() {
 		log4.Close(true)
 	}()
+
+	var count int
+	flag.IntVar(&count, "count", 100000, "count")
+	flag.Parse()
 
 	if true {
 		go func() {

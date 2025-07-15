@@ -1,6 +1,6 @@
 package log4
 
-import "log4go/ee"
+import "github.com/yefy/log4go/ee"
 
 type Level int
 

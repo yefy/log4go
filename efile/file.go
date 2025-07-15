@@ -1,7 +1,7 @@
 package efile
 
 import (
-	"log4go/ee"
+	"github.com/yefy/log4go/ee"
 	"os"
 	"path/filepath"
 )

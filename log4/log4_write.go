@@ -2,8 +2,8 @@ package log4
 
 import (
 	"fmt"
-	"github.com/yefy/log4go/ee"
 	"io"
+	"log4go/ee"
 )
 
 const (

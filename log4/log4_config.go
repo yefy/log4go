@@ -1,8 +1,8 @@
 package log4
 
 import (
-	"github.com/yefy/log4go/ee"
-	"github.com/yefy/log4go/efile"
+	"log4go/ee"
+	"log4go/efile"
 )
 
 //go:generate gomodifytags -file log4_config.go -struct Log4Config -add-tags yaml -transform snakecase -w

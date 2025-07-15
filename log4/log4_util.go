@@ -1,7 +1,7 @@
 package log4
 
 import (
-	"github.com/yefy/log4go/ee"
+	"log4go/ee"
 	"os"
 	"strings"
 	"unsafe"

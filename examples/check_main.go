@@ -14,13 +14,21 @@ import (
 )
 
 func main() {
-	err := doMain()
+	var count int
+	flag.IntVar(&count, "count", 100000, "count")
+	flag.Parse()
+
+	err := doMain(count)
 	if err != nil {
 		fmt.Printf("err:%v\n", err)
 	}
+
+	check("root", "./logs/sniffer.log", count)
+	check("main", "./logs/sniffer.log", count)
+	check("main", "./logs/sniffer_main.log", count)
 }
 
-func doMain() error {
+func doMain(count int) error {
 	err := log4.InitFile("./conf/log4.yaml")
 	if err != nil {
 		return ee.New(err, "log4.InitFile")
@@ -29,10 +37,6 @@ func doMain() error {
 	defer func() {
 		log4.Close(true)
 	}()
-
-	var count int
-	flag.IntVar(&count, "count", 100000, "count")
-	flag.Parse()
 
 	if true {
 		go func() {
@@ -67,10 +71,6 @@ func doMain() error {
 
 	context.Wait()
 
-	check("root", "./logs/sniffer.log", count)
-	check("main", "./logs/sniffer.log", count)
-	check("main", "./logs/sniffer_main.log", count)
-
 	return nil
 }
 
@@ -100,9 +100,13 @@ func check(target string, path string, count int) {
 		}
 	}
 
+	fmt.Printf("info: %v len:%v\n", target, len(seen))
+	if len(seen) <= 0 {
+		return
+	}
 	for i := 0; i < count; i++ {
 		if !seen[i] {
-			fmt.Printf("not find: i:%d, target:%v, path:%v\n", i, target, path)
+			fmt.Printf("err:not find: i:%d, target:%v, path:%v\n", i, target, path)
 		}
 	}
 }

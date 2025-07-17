@@ -9,6 +9,7 @@ do
 
   go run -tags=log4_debug check_main.go --count 100000 > ./logs/console.log
 
+  cat ./logs/console.log|grep "info:"
   cat ./logs/console.log|grep "err:"
 
   cat ./logs/sniffer.log |wc -l

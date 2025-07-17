@@ -89,6 +89,7 @@ type Log4ConfigAppender struct {
 //go:generate gomodifytags -file log4_config.go -struct Log4ConfigLogger -add-tags yaml -transform snakecase -w
 type Log4ConfigLogger struct {
 	Level     string   `yaml:"level"`
+	Multiline bool     `yaml:"multiline"`
 	Additive  bool     `yaml:"additive"`
 	Appenders []string `yaml:"appenders"`
 }

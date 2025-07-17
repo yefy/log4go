@@ -5,6 +5,7 @@ import (
 	"github.com/yefy/log4go/ee"
 	"github.com/yefy/log4go/efile"
 	"io/ioutil"
+	"regexp"
 	"runtime"
 	"strings"
 	"sync"
@@ -13,6 +14,8 @@ import (
 
 	"gopkg.in/yaml.v3"
 )
+
+var newlineRe = regexp.MustCompile(`\r?\n`)
 
 var defaultRootTarget = "root"
 
@@ -278,6 +281,10 @@ func (log4Target *Log4Target) GetRecord(skip int, level Level, format string, ar
 	msg := format
 	if len(args) > 0 {
 		msg = fmt.Sprintf(format, args...)
+	}
+
+	if !log4Target.Logger.Multiline {
+		msg = newlineRe.ReplaceAllString(msg, "⏎⏎⏎")
 	}
 
 	// Make the log record

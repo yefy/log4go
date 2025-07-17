@@ -27,8 +27,10 @@ func doMain() error {
 	for {
 		log4.Critical("=========================================== start")
 		log4.Target("main").Critical("=========================================== start")
-
-		log4.Critical("root Critical")
+		CriticalMsg := `root Critical 1111
+		222222
+		3333333`
+		log4.Critical(CriticalMsg)
 		log4.Error("rootError")
 		log4.Warn("rootWarn")
 		log4.Info("rootInfo")

@@ -16,6 +16,8 @@ const (
 	FORMAT_TIME_UTC = "%U"
 )
 
+var timeRe = regexp.MustCompile("\\%D\\{(.*?)\\}")
+
 type formatCacheType struct {
 	LastUpdateSeconds    int64
 	shortTime, shortDate string
@@ -124,9 +126,8 @@ func FormatLogRecord(format string, isUtc bool, rec *Log4Record, formatCache *fo
 func changeDttmFormat(format string, isUtc bool, rec *Log4Record) []byte {
 	Created := rec.GetCreateTime(isUtc)
 	formatByte := []byte(format)
-	r := regexp.MustCompile("\\%D\\{(.*?)\\}")
 	i := 0
-	formatByte = r.ReplaceAllFunc(formatByte, func(s []byte) []byte {
+	formatByte = timeRe.ReplaceAllFunc(formatByte, func(s []byte) []byte {
 		if i < 2 {
 			i++
 			str := string(s)

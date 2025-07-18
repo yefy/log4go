@@ -3,7 +3,6 @@ package log4
 import (
 	"github.com/yefy/log4go/ee"
 	"os"
-	"strings"
 	"unsafe"
 )
 
@@ -15,14 +14,6 @@ func ModTime(filePath string) (int64, error) {
 
 	modTime := info.ModTime()
 	return modTime.Unix(), nil
-}
-
-func GetLastStrPart(s string, substr string) string {
-	lastDot := strings.LastIndex(s, substr)
-	if lastDot == -1 {
-		return ""
-	}
-	return s[lastDot+len(substr):]
 }
 
 func SliceByteToString(b []byte) string {

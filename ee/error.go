@@ -3,9 +3,13 @@ package ee
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
 	"runtime"
 	"strings"
 )
+
+// / END_OF_LINE
+var endOfLine = "<<EOL>>"
 
 func New(err error, format string, a ...any) error {
 	return DoNew(err, 2, format, a...)
@@ -25,25 +29,35 @@ func DoNew(err error, skip int, format string, a ...any) error {
 	var line int
 	var ok bool
 	pc, file, line, ok = runtime.Caller(skip)
-	funcName = runtime.FuncForPC(pc).Name()
-	funcName = GetLastStrPart(funcName, ".")
 	if !ok {
 		file = "???"
 		line = 0
+		funcName = "???"
+	} else {
+		file = TrimPathN(file, 3)
+		funcName = runtime.FuncForPC(pc).Name()
+		funcName = GetLastStrPart(funcName, ".")
 	}
-	//addrStr := fmt.Sprintf("%s:%d %s", file, line, funcName)
-	addrStr := fmt.Sprintf("%s:%d|%s", file, line, funcName)
+	addrStr := fmt.Sprintf("%s:%d@%s", file, line, funcName)
 
 	if err != nil {
 		if len(err_str) <= 0 {
-			return errors.New(fmt.Sprintf("[ERROR] %s @@@ %v", addrStr, err))
+			return errors.New(fmt.Sprintf("[%s emsg()]%s%v", addrStr, endOfLine, err))
 		}
-		return errors.New(fmt.Sprintf("[ERROR] %s =》 %s @@@ %v", err_str, addrStr, err))
+		return errors.New(fmt.Sprintf("[%s emsg(%s)]%s%v", addrStr, err_str, endOfLine, err))
 	}
 	if len(err_str) <= 0 {
-		return errors.New(fmt.Sprintf("[ERROR] %s", addrStr))
+		return errors.New(fmt.Sprintf("[%s emsg()]", addrStr))
 	}
-	return errors.New(fmt.Sprintf("[ERROR] %s =》 %s", err_str, addrStr))
+	return errors.New(fmt.Sprintf("[%s emsg(%s)]", addrStr, err_str))
+}
+func TrimPathN(file string, keep int) string {
+	slashPath := filepath.ToSlash(file) // 转为统一斜杠
+	parts := strings.Split(slashPath, "/")
+	if len(parts) <= keep {
+		return slashPath
+	}
+	return strings.Join(parts[len(parts)-keep:], "/")
 }
 
 func GetLastStrPart(s string, substr string) string {

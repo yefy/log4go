@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 	"regexp"
 	"runtime"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -16,6 +15,9 @@ import (
 )
 
 var newlineRe = regexp.MustCompile(`\r?\n`)
+
+// / END_OF_LINE
+var endOfLine = "<<EOL>>"
 
 var defaultRootTarget = "root"
 
@@ -267,16 +269,22 @@ func (log4Target *Log4Target) WriteRecord(rec *Log4Record) {
 
 func (log4Target *Log4Target) GetRecord(skip int, level Level, format string, args ...interface{}) *Log4Record {
 	// Determine caller func
-	pc, file, lineno, ok := runtime.Caller(skip)
-	src := ""
-	if ok {
-		funcName := runtime.FuncForPC(pc).Name()
-		funcName = GetLastStrPart(funcName, ".")
-		path := file
-		parts := strings.Split(path, "/")
-		file = "/" + strings.Join(parts[len(parts)-2:], "/")
-		src = fmt.Sprintf("%s:%d|%s", file, lineno, funcName)
+	var funcName string
+	var pc uintptr
+	var file string
+	var line int
+	var ok bool
+	pc, file, line, ok = runtime.Caller(skip)
+	if !ok {
+		file = "???"
+		line = 0
+		funcName = "???"
+	} else {
+		file = ee.TrimPathN(file, 3)
+		funcName = runtime.FuncForPC(pc).Name()
+		funcName = ee.GetLastStrPart(funcName, ".")
 	}
+	src := fmt.Sprintf("%s:%d@%s", file, line, funcName)
 
 	msg := format
 	if len(args) > 0 {
@@ -284,7 +292,7 @@ func (log4Target *Log4Target) GetRecord(skip int, level Level, format string, ar
 	}
 
 	if !log4Target.Logger.Multiline {
-		msg = newlineRe.ReplaceAllString(msg, "⏎⏎⏎")
+		msg = newlineRe.ReplaceAllString(msg, endOfLine)
 	}
 
 	// Make the log record

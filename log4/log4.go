@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"regexp"
 	"runtime"
+	"runtime/debug"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -406,4 +407,10 @@ func InitFile(path string) error {
 	}()
 
 	return nil
+}
+
+
+func Recover(r interface{})  {
+	fmt.Printf("Recovered from panic:%v, Stack trace:%s \n", r, debug.Stack())
+	Error("Recovered from panic:%v, Stack trace:%s", r, debug.Stack())
 }

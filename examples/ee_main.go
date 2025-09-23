@@ -8,6 +8,12 @@ import (
 )
 
 func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			log4.Recover(r)
+		}
+	}()
+
 	err := doMain()
 	if err != nil {
 		fmt.Printf("err:%v\n", err)

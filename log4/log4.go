@@ -411,6 +411,6 @@ func InitFile(path string) error {
 
 
 func Recover(r interface{})  {
-	fmt.Printf("Recovered from panic:%v, Stack trace:%s \n", r, debug.Stack())
-	Error("Recovered from panic:%v, Stack trace:%s", r, debug.Stack())
+	fmt.Printf("Recovered from panic:%v, Stack trace:%s \n", r, string(debug.Stack()))
+	Error("Recovered from panic:%v, Stack trace:%s", r, string(debug.Stack()))
 }

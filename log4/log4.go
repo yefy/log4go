@@ -292,7 +292,7 @@ func (log4Target *Log4Target) GetRecord(skip int, level Level, format string, ar
 		msg = fmt.Sprintf(format, args...)
 	}
 
-	if !log4Target.Logger.Multiline {
+	if log4Target.Logger != nil && !log4Target.Logger.Multiline {
 		msg = newlineRe.ReplaceAllString(msg, endOfLine)
 	}
 

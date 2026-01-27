@@ -8,6 +8,7 @@ import (
 //go:generate gomodifytags -file log4_config.go -struct Log4Config -add-tags yaml -transform snakecase -w
 type Log4Config struct {
 	RefreshRate int64                         `yaml:"refresh_rate"`
+	NoOpenbufferPool bool                     `yaml:"no_open_buffer_pool"`
 	Appenders   map[string]Log4ConfigAppender `yaml:"appenders"`
 	Root        Log4ConfigLogger              `yaml:"root"`
 	Loggers     map[string]Log4ConfigLogger   `yaml:"loggers"`

@@ -38,7 +38,7 @@ func doMain(count int) error {
 		log4.Close(true)
 	}()
 
-	if true {
+	if false {
 		go func() {
 			for {
 				time.Sleep(time.Second * 1)
@@ -100,13 +100,13 @@ func check(target string, path string, count int) {
 		}
 	}
 
-	fmt.Printf("info: %v len:%v\n", target, len(seen))
+	fmt.Printf("check info: %v len:%v\n", target, len(seen))
 	if len(seen) <= 0 {
 		return
 	}
 	for i := 0; i < count; i++ {
 		if !seen[i] {
-			fmt.Printf("err:not find: i:%d, target:%v, path:%v\n", i, target, path)
+			fmt.Printf("err:check not find: i:%d, target:%v, path:%v\n", i, target, path)
 		}
 	}
 }

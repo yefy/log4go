@@ -35,15 +35,17 @@ type formatCacheType struct {
 // Ignores unknown formats
 // Recommended: "[%D %T] [%L] (%S) %M"
 // %U = utc
-func FormatLogRecord(format string, isUtc bool, rec *Log4Record, formatCache *formatCacheType) string {
+func FormatLogRecord(format string, isUtc bool, rec *Log4Record, formatCache *formatCacheType) *Msg {
+	out := GetMsg(1024 + len(rec.Message))
+	defer out.Put()
+
 	if rec == nil {
-		return ""
+		return out.Clone()
 	}
 	if len(format) == 0 {
-		return ""
+		return out.Clone()
 	}
 
-	out := bytes.NewBuffer(make([]byte, 0, 64))
 	Created := rec.GetCreateTime(isUtc)
 	secs := Created.UnixNano() / 1e9
 
@@ -120,7 +122,7 @@ func FormatLogRecord(format string, isUtc bool, rec *Log4Record, formatCache *fo
 	}
 	out.WriteByte('\n')
 
-	return out.String()
+	return out.Clone()
 }
 
 func changeDttmFormat(format string, isUtc bool, rec *Log4Record) []byte {

@@ -92,7 +92,7 @@ type Log4Appender interface {
 	Run()
 	Flush()
 	Close(isWait bool)
-	BufferWrite(msg string) error
+	BufferWrite(msg *Msg) error
 	BufferFlush() error
 	BufferSize() int
 	BufferClose() error
@@ -101,9 +101,10 @@ type Log4Appender interface {
 func BufferWriteAndDropRec(log Log4Appender, context *Log4AppenderContext, rec *Log4Record, formatCache *formatCacheType) {
 	defer rec.Put()
 	msg := FormatLogRecord(context.Appender.Pattern, context.IsUtc, rec, formatCache)
-	if len(msg) > 0 {
+	if msg != nil {
+		defer msg.Put()
 		recordCountStatAdd(context.nameWrite)
-		log.BufferWrite(msg)
+		log.BufferWrite(msg.Clone())
 	}
 }
 
@@ -249,8 +250,13 @@ func (log *Log4FileAppender) Run() {
 	Run(log, &log.Context)
 }
 
-func (log *Log4FileAppender) BufferWrite(msg string) error {
-	_, err := log.writer.WriteString(msg)
+func (log *Log4FileAppender) BufferWrite(msg *Msg) error {
+	if msg == nil {
+		return nil
+	}
+	defer msg.Put()
+
+	_, err := log.writer.Write(msg.Bytes())
 	if err != nil {
 		log4Debug("log.writer.WriteString err:%v", err)
 		return err
@@ -335,8 +341,12 @@ func (log *Log4ConsoleAppender) Run() {
 	Run(log, &log.Context)
 }
 
-func (log *Log4ConsoleAppender) BufferWrite(msg string) error {
-	fmt.Printf("%v", msg)
+func (log *Log4ConsoleAppender) BufferWrite(msg *Msg) error {
+	if msg == nil {
+		return nil
+	}
+	defer msg.Put()
+	fmt.Printf("%v", SliceByteToString(msg.Bytes()))
 	return nil
 }
 

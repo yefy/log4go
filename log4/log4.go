@@ -68,6 +68,7 @@ func (log4 *Log4) Run(log4Config *Log4Config) error {
 		return ee.New(err, "log4Config.Check")
 	}
 	log4.RefreshRate = log4Config.RefreshRate
+	SetMsgPoolFlag(!log4Config.NoOpenbufferPool)
 
 	for name, v := range log4Config.Appenders {
 		if v.Kind == KindConsole {

@@ -91,6 +91,6 @@ func (b *Log4Writer) Write(s []byte) (int, error) {
 	return sLen, nil
 }
 
-func (b *Log4Writer) WriteString(s string) (int, error) {
-	return b.Write(StringToSliceByte(s))
-}
+//func (b *Log4Writer) WriteString(s string) (int, error) {
+//	return b.Write(StringToSliceByte(s))
+//}

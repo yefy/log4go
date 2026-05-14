@@ -49,20 +49,18 @@ func GetMsg(size int) *Msg {
 	}
 }
 
-
-
 type Msg struct {
 	RefCount atomic.Int32
 	*bytes.Buffer
-	Cap int
-	Pool     *sync.Pool
+	Cap  int
+	Pool *sync.Pool
 }
 
 func NewMsg(cap int, Pool *sync.Pool) *Msg {
 	msg := &Msg{
-		Buffer:    bytes.NewBuffer(make([]byte, 0, cap)),
+		Buffer:   bytes.NewBuffer(make([]byte, 0, cap)),
 		Pool:     Pool,
-		Cap: cap,
+		Cap:      cap,
 		RefCount: atomic.Int32{},
 	}
 	//msg.RefCount.Add(1)

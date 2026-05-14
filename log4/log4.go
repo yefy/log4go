@@ -410,8 +410,7 @@ func InitFile(path string) error {
 	return nil
 }
 
-
-func Recover(r interface{})  {
+func Recover(r interface{}) {
 	fmt.Printf("Recovered from panic:%v, Stack trace:%s \n", r, string(debug.Stack()))
 	Error("Recovered from panic:%v, Stack trace:%s", r, string(debug.Stack()))
 }

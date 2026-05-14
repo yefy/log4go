@@ -15,7 +15,7 @@ appenders:
 
 root:
   level: info
-  multiline: true
+  multiline: false
   appenders:
     - stdout
     - file
@@ -23,14 +23,14 @@ root:
 loggers:
   main:
     level: trace
-    multiline: true
+    multiline: false
     additive: true
     appenders:
       - stdout
       - main_file
   test:
     level: info
-    multiline: true
+    multiline: false
     additive: true
 
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/yefy/log4go/ee"
 	"github.com/yefy/log4go/log4"
+	"io"
 )
 
 func err() error {
@@ -14,7 +15,8 @@ func err() error {
 func err1() error {
 	//err := err()
 	//return ee.New(err, "2222")
-	return ee.New(nil, "2222")
+	//return ee.New(nil, "2222")
+	return ee.New(io.EOF, "2222")
 }
 
 func err2() error {
@@ -57,6 +59,9 @@ func doMain() error {
 
 	err = err4()
 	if err != nil {
+		fmt.Printf("err:%s\n", err.Error())
+		fmt.Printf("err:%s\n", err)
+
 		fmt.Printf("err:%v\n", err)
 		fmt.Printf("err:%+v\n", err)
 		fmt.Printf("err:%+#v\n", err)

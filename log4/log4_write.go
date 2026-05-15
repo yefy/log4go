@@ -2,8 +2,9 @@ package log4
 
 import (
 	"fmt"
-	"github.com/yefy/log4go/ee"
 	"io"
+
+	"github.com/yefy/log4go/ee"
 )
 
 const (
@@ -57,18 +58,20 @@ func (b *Log4Writer) FlushBuf(buf []byte) error {
 	if bufSize <= 0 {
 		return nil
 	}
-	for i := 0; i < 3; i++ {
-		n, err := b.wr.Write(buf)
-		if err == nil && n == bufSize {
+	var err error
+	total := 0
+	for i := 0; i < 5; i++ {
+		n, e := b.wr.Write(buf[total:])
+		if e != nil {
+			err = e
+		}
+		total += n
+		if total == bufSize {
 			return nil
 		}
-
-		if err != nil {
-			fmt.Printf("err:Flush => index:%v, err:%v\n", i, err)
-		} else {
-			fmt.Printf("err:Flush => index:%v, n:%v != bufSize:%v\n", i, n, bufSize)
-		}
 	}
+
+	fmt.Printf("err:Flush => total:%v != bufSize:%v, err:%v\n", total, bufSize, err)
 
 	return ee.New(nil, "err:Flush")
 }

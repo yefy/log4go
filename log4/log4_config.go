@@ -24,7 +24,7 @@ func (log4Config *Log4Config) Check() error {
 
 		if v.Kind == KindFile {
 			if len(v.Path) <= 0 {
-				return ee.New(nil, "open path nil in appenders:%v|%+v", v.Path, appender, v)
+				return ee.New(nil, "open path nil in appenders:%v|%+v", appender, v)
 			}
 
 			err := efile.EnsureLogDirExists(v.Path)

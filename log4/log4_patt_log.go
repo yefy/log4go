@@ -36,12 +36,13 @@ type formatCacheType struct {
 // Recommended: "[%D %T] [%L] (%S) %M"
 // %U = utc
 func FormatLogRecord(format string, isUtc bool, rec *Log4Record, formatCache *formatCacheType) *Msg {
+	if rec == nil {
+		return GetMsg(1024)
+	}
+
 	out := GetMsg(1024 + len(rec.Message))
 	defer out.Put()
 
-	if rec == nil {
-		return out.Clone()
-	}
 	if len(format) == 0 {
 		return out.Clone()
 	}

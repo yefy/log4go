@@ -2,8 +2,6 @@ package log4
 
 import (
 	"fmt"
-	"github.com/yefy/log4go/ee"
-	"github.com/yefy/log4go/efile"
 	"io/ioutil"
 	"regexp"
 	"runtime"
@@ -11,6 +9,9 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/yefy/log4go/ee"
+	"github.com/yefy/log4go/efile"
 
 	"gopkg.in/yaml.v3"
 )
@@ -51,7 +52,7 @@ type Log4 struct {
 	RefreshRate int64
 	deferFuncs  []func()
 	context     *WaitGroupContext
-	IsClose     bool
+	IsClose     atomic.Bool
 }
 
 func (log4 *Log4) Target(targetName string) *Log4Target {
@@ -83,7 +84,7 @@ func (log4 *Log4) Run(log4Config *Log4Config) error {
 			appender := NewLog4FileAppender(name, &v, file)
 			log4.appenderMap[name] = appender
 		} else {
-			return ee.New(err, "not find kind:%v", v.Kind)
+			return ee.New(nil, "not find kind:%v", v.Kind)
 		}
 	}
 
@@ -100,7 +101,7 @@ func (log4 *Log4) Run(log4Config *Log4Config) error {
 		for _, name := range logger.Appenders {
 			appender, ok := log4.appenderMap[name]
 			if !ok {
-				return nil, ee.New(err, "not find appender:%v", name)
+				return nil, ee.New(nil, "not find appender:%v", name)
 			}
 			target.appenders = append(target.appenders, appender)
 		}
@@ -297,12 +298,13 @@ func (log4Target *Log4Target) GetRecord(skip int, level Level, format string, ar
 		msg = newlineRe.ReplaceAllString(msg, endOfLine)
 	}
 
+	currTime := time.Now()
 	// Make the log record
 	rec := NewLog4Record()
 	rec.Target = log4Target.Name
 	rec.Level = LevelToLevelFileName(level)
-	rec.Created = time.Now()
-	rec.CreatedUtc = time.Now().UTC()
+	rec.Created = currTime
+	rec.CreatedUtc = currTime.UTC()
 	rec.Source = src
 	rec.Message = msg
 
@@ -356,10 +358,10 @@ func Flush() {
 
 func Close(isWait bool) {
 	log4 := (*Log4)(GLog4.Load())
-	if log4.IsClose {
+	if !log4.IsClose.CompareAndSwap(false, true) {
 		return
 	}
-	log4.IsClose = true
+
 	if !isWait {
 		log4.Close(isWait)
 		GCtx.Done()
@@ -373,7 +375,7 @@ func Close(isWait bool) {
 
 func Reopen() {
 	log4 := (*Log4)(GLog4.Load())
-	if log4.IsClose {
+	if log4.IsClose.Load() {
 		log4Debug("err:Reopen => log4 is close")
 		return
 	}

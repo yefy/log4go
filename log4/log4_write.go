@@ -62,12 +62,14 @@ func (b *Log4Writer) FlushBuf(buf []byte) error {
 	total := 0
 	for i := 0; i < 5; i++ {
 		n, e := b.wr.Write(buf[total:])
+		if n >= 0 {
+			total += n
+			if total == bufSize {
+				return nil
+			}
+		}
 		if e != nil {
 			err = e
-		}
-		total += n
-		if total == bufSize {
-			return nil
 		}
 	}
 

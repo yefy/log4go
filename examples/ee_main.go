@@ -47,6 +47,23 @@ func main() {
 	}
 }
 
+func panic1() {
+	panic("panic1")
+}
+
+func panic2() {
+	panic1()
+}
+
+func panic3() {
+	defer func() {
+		if r := recover(); r != nil {
+			log4.Recover(r)
+		}
+	}()
+	panic2()
+}
+
 func doMain() error {
 	err := log4.InitFile("./conf/log4.yaml")
 	if err != nil {
@@ -56,6 +73,8 @@ func doMain() error {
 	defer func() {
 		log4.Close(true)
 	}()
+
+	panic3()
 
 	err = err4()
 	if err != nil {

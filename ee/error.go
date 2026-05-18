@@ -9,6 +9,11 @@ import (
 )
 
 const isShortPath = true
+var openStackInfoToErrorLog bool
+
+func OpenStackInfoToErrorLog(b bool)  {
+	openStackInfoToErrorLog = b
+}
 
 type Error struct {
 	msg   string
@@ -120,12 +125,12 @@ func (e *Error) Format(s fmt.State, verb rune) {
 
 		// %+v
 		if s.Flag('+') {
-			e.formatFull(s, false)
+			e.formatFull(s, openStackInfoToErrorLog)
 			return
 		}
 
 		// %v
-		e.formatFull(s, false)
+		e.formatFull(s, openStackInfoToErrorLog)
 		return
 	}
 }

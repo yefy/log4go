@@ -24,6 +24,13 @@ type Error struct {
 	cause error
 }
 
+func NewErr(err error) error {
+	if err == nil {
+		return nil
+	}
+	return DoNew(err, 2, "")
+}
+
 func New(err error, format string, a ...any) error {
 	return DoNew(err, 2, format, a...)
 }

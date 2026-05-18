@@ -9,13 +9,16 @@ import (
 )
 
 const isShortPath = true
+
 var openStackInfoToErrorLog bool
 
-func OpenStackInfoToErrorLog(b bool)  {
+func OpenStackInfoToErrorLog(b bool) {
 	openStackInfoToErrorLog = b
 }
 
 type Error struct {
+	gCode int
+	code  int
 	msg   string
 	stack []uintptr
 	cause error
@@ -25,11 +28,19 @@ func New(err error, format string, a ...any) error {
 	return DoNew(err, 2, format, a...)
 }
 
-func DoNew(err error, skip int, format string, a ...any) error {
+func NewCode(code int, err error, format string, a ...any) error {
+	e := DoNew(err, 2, format, a...)
+	e.CodeReset(code)
+	return e
+}
+
+func DoNew(err error, skip int, format string, a ...any) *Error {
 	msg := buildMessage(skip+1, format, a...)
 
 	if e, ok := err.(*Error); ok {
 		return &Error{
+			gCode: e.gCode,
+			code:  0,
 			msg:   msg,
 			stack: e.stack,
 			cause: err,
@@ -37,6 +48,8 @@ func DoNew(err error, skip int, format string, a ...any) error {
 	}
 
 	return &Error{
+		gCode: 0,
+		code:  0,
 		msg:   msg,
 		stack: callers(skip + 1),
 		cause: err,
@@ -86,6 +99,26 @@ func callers(skip int) []uintptr {
 	n := runtime.Callers(skip, pcs)
 
 	return pcs[:n]
+}
+
+func (e *Error) IgnorePrint() bool {
+	return e.gCode < 0
+}
+
+func (e *Error) GCode() int {
+	return e.gCode
+}
+
+func (e *Error) GCodeReset(code int) {
+	e.gCode = code
+}
+
+func (e *Error) Code() int {
+	return e.code
+}
+
+func (e *Error) CodeReset(code int) {
+	e.code = code
 }
 
 func (e *Error) Error() string {

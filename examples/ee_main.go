@@ -74,6 +74,8 @@ func doMain() error {
 		log4.Close(true)
 	}()
 
+	log4.Info("doMain start")
+
 	panic3()
 
 	err = err4()
@@ -89,5 +91,6 @@ func doMain() error {
 		log4.Error("err:%+v", err)
 		log4.Error("err:%+#v", err)
 	}
+	log4.Info("doMain end")
 	return nil
 }

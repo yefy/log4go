@@ -29,8 +29,14 @@ func New(err error, format string, a ...any) error {
 }
 
 func NewCode(code int, err error, format string, a ...any) error {
+	return DoNew(err, 2, format, a...).CodeSet(code)
+}
+
+func NewCopyCode(err error, format string, a ...any) error {
 	e := DoNew(err, 2, format, a...)
-	e.CodeReset(code)
+	if ee, ok := err.(*Error); ok {
+		e.CodeSet(ee.Code())
+	}
 	return e
 }
 
@@ -109,16 +115,18 @@ func (e *Error) GCode() int {
 	return e.gCode
 }
 
-func (e *Error) GCodeReset(code int) {
+func (e *Error) GCodeSet(code int) *Error {
 	e.gCode = code
+	return e
 }
 
 func (e *Error) Code() int {
 	return e.code
 }
 
-func (e *Error) CodeReset(code int) {
+func (e *Error) CodeSet(code int) *Error {
 	e.code = code
+	return e
 }
 
 func (e *Error) Error() string {

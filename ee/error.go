@@ -41,7 +41,7 @@ func NewCode(code int, err error, format string, a ...any) error {
 
 func NewCopyCode(err error, format string, a ...any) error {
 	e := DoNew(err, 2, format, a...)
-	if ee, ok := err.(*Error); ok {
+	if ee, ok := err.(*Error); ok && ee != nil {
 		e.CodeSet(ee.Code())
 	}
 	return e
@@ -50,7 +50,7 @@ func NewCopyCode(err error, format string, a ...any) error {
 func DoNew(err error, skip int, format string, a ...any) *Error {
 	msg := buildMessage(skip+1, format, a...)
 
-	if e, ok := err.(*Error); ok {
+	if e, ok := err.(*Error); ok && e != nil {
 		return &Error{
 			gCode: e.gCode,
 			code:  0,
@@ -109,7 +109,7 @@ func buildMessage(skip int, format string, a ...any) string {
 func callers(skip int) []uintptr {
 	pcs := make([]uintptr, 64)
 
-	n := runtime.Callers(skip, pcs)
+	n := runtime.Callers(skip+1, pcs)
 
 	return pcs[:n]
 }
@@ -180,6 +180,9 @@ func (e *Error) Format(s fmt.State, verb rune) {
 		// %v
 		e.formatFull(s, openStackInfoToErrorLog)
 		return
+	default:
+		fmt.Fprintf(s, "%%!%c(*ee.Error=%s)", verb, e.msg)
+		return
 	}
 }
 
@@ -189,7 +192,7 @@ func (e *Error) formatFull(w io.Writer, isPrintStack bool) {
 	fmt.Fprintf(w, "\n")
 	cur := error(e)
 	for cur != nil {
-		if ee, ok := cur.(*Error); ok {
+		if ee, ok := cur.(*Error); ok && ee != nil {
 			fmt.Fprintf(w, "    %d.%s\n", index, ee.msg)
 			cur = ee.cause
 		} else {

@@ -39,10 +39,19 @@ func doMain(count int) error {
 		log4.Close(true)
 	}()
 
-	if false {
+	fmt.Printf("main_log doMain start\n")
+	isClose := false
+	contextReopen := log4.NewWaitGroupContext()
+	if true {
+		contextReopen.Add(1)
 		go func() {
+			defer contextReopen.Done()
 			for {
-				time.Sleep(time.Second * 1)
+				if isClose {
+					break
+				}
+				time.Sleep(time.Millisecond * 100)
+				fmt.Printf("main_log log Reopen\n")
 				log4.Reopen()
 			}
 		}()
@@ -71,6 +80,10 @@ func doMain(count int) error {
 	}
 
 	context.Wait()
+	fmt.Printf("main_log log end\n")
+	isClose = true
+	contextReopen.Wait()
+	fmt.Printf("main_log doMain end\n")
 
 	return nil
 }
@@ -101,13 +114,19 @@ func check(target string, path string, count int) {
 		}
 	}
 
-	fmt.Printf("check info: %v len:%v\n", target, len(seen))
+	fmt.Printf("main_log check info: %v len:%v\n", target, len(seen))
 	if len(seen) <= 0 {
 		return
 	}
+	isOk := true
 	for i := 0; i < count; i++ {
 		if !seen[i] {
+			isOk = false
 			fmt.Printf("err:check not find: i:%d, target:%v, path:%v\n", i, target, path)
 		}
+	}
+
+	if isOk {
+		fmt.Printf("main_log check info: %v len:%v ok\n", target, len(seen))
 	}
 }

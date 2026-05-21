@@ -122,6 +122,26 @@ func (log4 *Log4) Run(log4Config *Log4Config) error {
 		log4.TargetMap.Store(name, rootTarget)
 	}
 
+	GCtx.Add(1)
+	oldLog4 := (*Log4)(GLog4.Swap(log4))
+	if !oldLog4.CloseCompareAndSwap() {
+		//oldLog4.CloseCompareAndSwap已经关闭了,  log4.CloseCompareAndSwap 也要进行关闭
+		//获取到CloseCompareAndSwap, 需要关闭
+		if log4.CloseCompareAndSwap() {
+			go func() {
+				defer GCtx.Done()
+				log4.Close(true)
+			}()
+		}
+		//正常关闭, 不需要大于错误日志
+		return ee.NewCode(-1, nil,"isClose")
+	}
+	//获取到CloseCompareAndSwap, 需要关闭
+	go func() {
+		defer GCtx.Done()
+		oldLog4.Close(true)
+	}()
+
 	log4.context.Add(1)
 	go func() {
 		RecordCountStatAdd(ReInitFileStartCount)
@@ -142,6 +162,10 @@ func (log4 *Log4) Run(log4Config *Log4Config) error {
 				log4Debug("reInitFile done")
 				return
 			case <-ticker.C:
+				if log4.IsClose.Load() {
+					log4Debug("reInitFile IsClose")
+					return
+				}
 				modTime, _ := ModTime(log4.path)
 				if lastModTime == modTime {
 					continue
@@ -162,17 +186,37 @@ func (log4 *Log4) Flush() {
 	}
 }
 
+func (log4 *Log4) CloseCompareAndSwap() bool {
+	if !log4.IsClose.CompareAndSwap(false, true) {
+		return false
+	}
+
+	return true
+}
+
 func (log4 *Log4) Close(isWait bool) {
+	//这里为什么sleep 2,  在关闭前, log.Info, log.Error 已经得到log4, 正在准备写数据, 如果马上close, 数据就丢失了
+	time.Sleep(time.Second * 2)
 	RecordCountStatAdd(Log4EndCount)
 	for _, appender := range log4.appenderMap {
 		appender.Close(isWait)
 	}
 
 	log4.context.Quit(isWait)
+	if !isWait {
+		go log4.waitClose()
+	}
 
 	for _, deferFunc := range log4.deferFuncs {
 		deferFunc()
 	}
+}
+
+func (log4 *Log4) waitClose() {
+	for _, appender := range log4.appenderMap {
+		appender.WaitClose()
+	}
+	log4.context.Wait()
 }
 
 func NewLog4Target(name string) *Log4Target {
@@ -257,14 +301,18 @@ func (log4Target *Log4Target) log(skip int, level Level, format string, args ...
 	rec := log4Target.GetRecord(skip, level, format, args...)
 	defer rec.Put()
 
-	log4Target.WriteRecord(rec)
+	log4Target.WriteRecord(level, rec)
 
 	if log4Target.Logger != nil && log4Target.Logger.Additive && log4Target.RootTarget != nil {
-		log4Target.RootTarget.WriteRecord(rec)
+		log4Target.RootTarget.WriteRecord(level, rec)
 	}
 }
 
-func (log4Target *Log4Target) WriteRecord(rec *Log4Record) {
+func (log4Target *Log4Target) WriteRecord(level Level, rec *Log4Record) {
+	if level < log4Target.Level {
+		return
+	}
+
 	for _, appender := range log4Target.appenders {
 		appender.LogRecord(rec.Clone())
 	}
@@ -357,20 +405,25 @@ func Flush() {
 }
 
 func Close(isWait bool) {
-	log4 := (*Log4)(GLog4.Load())
-	if !log4.IsClose.CompareAndSwap(false, true) {
+	for {
+		log4 := (*Log4)(GLog4.Load())
+		isCloseCompareAndSwap := log4.CloseCompareAndSwap()
+		time.Sleep(time.Second)
+		if isCloseCompareAndSwap{
+			go func() {
+				log4.Close(true)
+				GCtx.Done()
+			}()
+		}
+		newLog4 := (*Log4)(GLog4.Load())
+		if log4 != newLog4 {
+			continue
+		}
+		if isWait {
+			GCtx.Wait()
+		}
 		return
 	}
-
-	if !isWait {
-		log4.Close(isWait)
-		GCtx.Done()
-		return
-	}
-
-	log4.Close(isWait)
-	GCtx.Done()
-	GCtx.Wait()
 }
 
 func Reopen() {
@@ -398,16 +451,13 @@ func InitFile(path string) error {
 	log4 := NewLog4(path)
 	err = log4.Run(log4Config)
 	if err != nil {
+		if e, ok := err.(*ee.Error); ok && e != nil {
+			if e.IgnorePrint() {
+				return nil
+			}
+		}
 		return ee.New(err, "log4.Run path:%v", path)
 	}
-
-	GCtx.Add(1)
-	log4 = GLog4.Swap(log4)
-	go func() {
-		defer GCtx.Done()
-		time.Sleep(time.Second * 2)
-		log4.Close(true)
-	}()
 
 	return nil
 }

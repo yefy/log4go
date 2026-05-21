@@ -1,10 +1,16 @@
 package log4
 
 import (
-	"github.com/yefy/log4go/ee"
+	"fmt"
 	"os"
 	"unsafe"
+
+	"github.com/yefy/log4go/ee"
 )
+
+func logWriteError(format string, args ...interface{}) {
+	fmt.Fprintf(os.Stderr, "log4: "+format+"\n", args...)
+}
 
 func ModTime(filePath string) (int64, error) {
 	info, err := os.Stat(filePath)

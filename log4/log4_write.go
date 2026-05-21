@@ -3,13 +3,20 @@ package log4
 import (
 	"fmt"
 	"io"
+	"os"
 
 	"github.com/yefy/log4go/ee"
 )
 
 const (
-	defaultBufSize = 4096
+	defaultBufSize   = 4096
 )
+
+//让用户控制尝试几次
+var flushMaxRetries = 3
+func FlushBuffToFileMaxRetries(n int)  {
+	flushMaxRetries = n
+}
 
 type Log4Writer struct {
 	buf []byte
@@ -18,7 +25,6 @@ type Log4Writer struct {
 }
 
 func NewLog4WriterSize(w io.Writer, size int) *Log4Writer {
-	// Is it already a Writer?
 	b, ok := w.(*Log4Writer)
 	if ok && len(b.buf) >= size {
 		return b
@@ -48,54 +54,74 @@ func (b *Log4Writer) Flush() error {
 	if b.n <= 0 {
 		return nil
 	}
-	err := b.FlushBuf(b.buf[0:b.n])
-	b.Reset()
+	written, err := b.writeAll(b.buf[0:b.n])
+	if written > 0 {
+		copy(b.buf, b.buf[written:b.n])
+		b.n -= written
+	}
 	return err
 }
 
-func (b *Log4Writer) FlushBuf(buf []byte) error {
+func (b *Log4Writer) writeAll(buf []byte) (int, error) {
 	bufSize := len(buf)
 	if bufSize <= 0 {
-		return nil
+		return 0, nil
 	}
-	var err error
+
 	total := 0
-	for i := 0; i < 5; i++ {
-		n, e := b.wr.Write(buf[total:])
-		if n >= 0 {
+	var lastErr error
+	retries := 0
+
+	for total < bufSize {
+		n, err := b.wr.Write(buf[total:])
+		if n > 0 {
 			total += n
+			retries = 0
 			if total == bufSize {
-				return nil
+				return total, nil
 			}
+			continue
 		}
-		if e != nil {
-			err = e
+		if err != nil {
+			lastErr = err
+		}
+		retries++
+		if retries >= flushMaxRetries {
+			break
 		}
 	}
 
-	fmt.Printf("err:Flush => total:%v != bufSize:%v, err:%v\n", total, bufSize, err)
+	if total == bufSize {
+		return total, nil
+	}
 
-	return ee.New(nil, "err:Flush")
+	if lastErr == nil {
+		lastErr = fmt.Errorf("write stalled at %d/%d bytes", total, bufSize)
+	}
+
+	logWriteError("flush failed: wrote %d/%d bytes, err: %v", total, bufSize, lastErr)
+	return total, ee.New(lastErr, "err:Flush")
 }
 
 func (b *Log4Writer) Write(s []byte) (int, error) {
 	sLen := len(s)
 	if sLen >= b.Size() {
-		b.Flush()
-		b.FlushBuf(s)
-		return sLen, nil
-	} else if sLen > b.Available() {
-		b.Flush()
+		if err := b.Flush(); err != nil {
+			return 0, err
+		}
+		n, err := b.writeAll(s)
+		return n, err
+	}
+	if sLen > b.Available() {
+		if err := b.Flush(); err != nil {
+			return 0, err
+		}
 	}
 
 	n := copy(b.buf[b.n:], s)
 	if n != sLen {
-		fmt.Printf("err:copy => n:%v != sLen:%v", n, sLen)
+		fmt.Fprintf(os.Stderr, "log4: err:copy => n:%v != sLen:%v\n", n, sLen)
 	}
 	b.n += n
 	return sLen, nil
 }
-
-//func (b *Log4Writer) WriteString(s string) (int, error) {
-//	return b.Write(StringToSliceByte(s))
-//}

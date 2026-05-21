@@ -1,0 +1,19 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Launch log4go",
+            "type": "go",
+            "request": "launch",
+
+            "mode": "debug",
+
+            "program": "${workspaceFolder}/examples/ee_main.go",
+
+            "cwd": "${workspaceFolder}/examples",
+            "env": {
+                "GOTMPDIR": "${workspaceFolder}/examples"
+            }
+        }
+    ]
+}

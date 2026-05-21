@@ -3,6 +3,8 @@ package log4
 import (
 	"context"
 	"fmt"
+	"github.com/yefy/log4go/ee"
+	"github.com/yefy/log4go/efile"
 	"os"
 	"runtime/debug"
 	"sort"
@@ -92,25 +94,30 @@ type Log4Appender interface {
 	Run()
 	Flush()
 	Close(isWait bool)
+	WaitClose()
+	BufferReset()
+	BufferReopen() error
 	BufferWrite(msg *Msg) error
 	BufferFlush() error
 	BufferSize() int
 	BufferClose() error
 }
 
-func BufferWriteAndDropRec(log Log4Appender, context *Log4AppenderContext, rec *Log4Record, formatCache *formatCacheType) {
+func BufferWriteAndDropRec(log Log4Appender, context *Log4AppenderContext, rec *Log4Record, formatCache *formatCacheType) error {
 	defer rec.Put()
 	msg := FormatLogRecord(context.Appender.Pattern, context.IsUtc, rec, formatCache)
 	if msg != nil {
 		defer msg.Put()
 		recordCountStatAdd(context.nameWrite)
-		log.BufferWrite(msg.Clone())
+		if err := log.BufferWrite(msg.Clone()); err != nil {
+			logWriteError("appender %s write failed: %v", context.name, err)
+			return err
+		}
 	}
+	return nil
 }
 
-func BufferFlush(log Log4Appender, context *Log4AppenderContext, formatCache *formatCacheType) {
-	defer log.BufferFlush()
-
+func drainRecChanPending(log Log4Appender, context *Log4AppenderContext, formatCache *formatCacheType) {
 	for {
 		select {
 		case rec, ok := <-context.recChan:
@@ -126,26 +133,9 @@ func BufferFlush(log Log4Appender, context *Log4AppenderContext, formatCache *fo
 	}
 }
 
-func Run(log Log4Appender, context *Log4AppenderContext) {
-	context.context.Add(1)
-	go func() {
-		recordCountStatAdd(runThreadCount)
-		ticker := time.NewTicker(1 * time.Second)
-		formatCache := formatCacheType{}
-		defer func() {
-			ticker.Stop()
-			BufferFlush(log, context, &formatCache)
-			log.BufferClose()
-			recordCountStatAdd(stopThreadCount)
-			recordCountStatPrint()
-			context.context.Done()
-		}()
-
-		done := context.context.Ctx.Done()
-		writeCount := 0
-		lastWriteCount := writeCount
-		isWrite := false
-		lastBufferSize := 0
+func drainRecChanAll(log Log4Appender, context *Log4AppenderContext, formatCache *formatCacheType) {
+	for {
+		drained := false
 		for {
 			select {
 			case rec, ok := <-context.recChan:
@@ -154,35 +144,94 @@ func Run(log Log4Appender, context *Log4AppenderContext) {
 					return
 				}
 				recordCountStatAdd(context.nameValid)
-				BufferWriteAndDropRec(log, context, rec, &formatCache)
+				BufferWriteAndDropRec(log, context, rec, formatCache)
+				drained = true
+			default:
+				goto nextPass
+			}
+		}
+	nextPass:
+		if !drained {
+			return
+		}
+	}
+}
+
+func BufferFlush(log Log4Appender, context *Log4AppenderContext, formatCache *formatCacheType) {
+	drainRecChanPending(log, context, formatCache)
+	if err := log.BufferFlush(); err != nil {
+		logWriteError("appender %s buffer flush failed: %v", context.name, err)
+	}
+}
+
+func Run(log Log4Appender, context *Log4AppenderContext) {
+	context.context.Add(1)
+	go func() {
+		recordCountStatAdd(runThreadCount)
+		ticker := time.NewTicker(1 * time.Second)
+		formatCache := formatCacheType{}
+		defer func() {
+			if r := recover(); r != nil {
+				logWriteError("appender %s panic: %v\n%s", context.name, r, debug.Stack())
+			}
+			ticker.Stop()
+			drainRecChanAll(log, context, &formatCache)
+			if err := log.BufferFlush(); err != nil {
+				logWriteError("appender %s final buffer flush failed: %v", context.name, err)
+			}
+			if err := log.BufferClose(); err != nil {
+				logWriteError("appender %s buffer close failed: %v", context.name, err)
+			}
+			recordCountStatAdd(stopThreadCount)
+			recordCountStatPrint()
+			context.context.Done()
+		}()
+
+		done := context.context.Ctx.Done()
+		writeCount := 0
+		lastWriteCount := writeCount
+		var writeErr error
+		for {
+			select {
+			case rec, ok := <-context.recChan:
+				recordCountStatAdd(context.nameIn)
+				if !ok {
+					return
+				}
+				recordCountStatAdd(context.nameValid)
+				//有错误, 又有新的数据, 需要清空上次数据, 写新的数据, 不能堵塞, 影响业务
+				if writeErr != nil {
+					log.BufferReset()
+				}
+				writeErr = BufferWriteAndDropRec(log, context, rec, &formatCache)
 				writeCount += 1
-				if lastBufferSize == 0 {
-					lastBufferSize = log.BufferSize()
-				}
-				if log.BufferSize() < lastBufferSize {
-					isWrite = true
-				}
-				lastBufferSize = log.BufferSize()
 			case <-done:
 				log4Debug("record %v done", context.name)
-				BufferFlush(log, context, &formatCache)
+				drainRecChanAll(log, context, &formatCache)
+				if err := log.BufferFlush(); err != nil {
+					logWriteError("appender %s shutdown buffer flush failed: %v", context.name, err)
+				}
 				return
 			case <-context.flushChan:
 				BufferFlush(log, context, &formatCache)
 			case <-ticker.C:
-				if lastWriteCount == writeCount {
-					if log.BufferSize() > 0 {
-						log.BufferFlush()
-						log4Debug("log.BufferFlush:lastWriteCount == writeCount")
+				//如果没有新的数据, 尝试flush
+				if lastWriteCount == writeCount && log.BufferSize() > 0 {
+					if err := log.BufferFlush(); err != nil {
+						logWriteError("appender %s periodic buffer flush failed: %v", context.name, err)
+					}
+					log4Debug("log.BufferFlush:lastWriteCount == writeCount")
+				} else {
+					//写入错误了, 有新的数据, 定时reopen
+					if writeErr != nil {
+						err := log.BufferReopen()
+						if err != nil {
+							logWriteError("appender %s periodic buffer flush failed: %v", context.name, err)
+						} else {
+							writeErr = nil
+						}
 					}
 				}
-				if !isWrite {
-					if log.BufferSize() > 0 {
-						log.BufferFlush()
-						log4Debug("log.BufferFlush:!isWrite")
-					}
-				}
-				isWrite = false
 				lastWriteCount = writeCount
 			}
 		}
@@ -203,6 +252,32 @@ type Log4AppenderContext struct {
 	context         *WaitGroupContext
 	flushChan       chan bool
 	IsUtc           bool
+	stopped         atomic.Bool
+}
+
+func (context *Log4AppenderContext) stopAccepting() {
+	context.stopped.Store(true)
+}
+
+func (context *Log4AppenderContext) sendRecord(rec *Log4Record) {
+	if context.stopped.Load() {
+		rec.Put()
+		return
+	}
+	select {
+	case context.recChan <- rec:
+	case <-context.context.Ctx.Done():
+		rec.Put()
+	}
+}
+
+func (context *Log4AppenderContext) closeAppender(isWait bool) {
+	context.stopAccepting()
+	context.context.Quit(isWait)
+}
+
+func (context *Log4AppenderContext) waitClose() {
+	context.context.Wait()
 }
 
 func NewLog4FileAppender(name string, Appender *Log4ConfigAppender, file *os.File) *Log4FileAppender {
@@ -242,7 +317,7 @@ func (log *Log4FileAppender) Name() string {
 
 func (log *Log4FileAppender) LogRecord(rec *Log4Record) {
 	recordCountStatAdd(log.Context.nameRecordStart)
-	log.Context.recChan <- rec
+	log.Context.sendRecord(rec)
 	recordCountStatAdd(log.Context.nameRecordEnd)
 }
 
@@ -258,9 +333,29 @@ func (log *Log4FileAppender) BufferWrite(msg *Msg) error {
 
 	_, err := log.writer.Write(msg.Bytes())
 	if err != nil {
+		//写入失败缓存无法容纳当前msg的数据了, 保留当前日志, 没啥用, 要
+		log.writer.Reset()
 		log4Debug("log.writer.WriteString err:%v", err)
 		return err
 	}
+	return nil
+}
+
+
+func (log *Log4FileAppender) BufferReset() {
+	log.writer.Reset()
+}
+
+func (log *Log4FileAppender) BufferReopen() error {
+	file, err := efile.OpenFileWithShareDelete(log.Context.Appender.Path)
+	if err != nil {
+		return ee.New(err, "open path:%v ", log.Context.Appender.Path)
+	}
+	writer := NewLog4Writer(file)
+
+	log.File.Close()
+	log.File = file
+	log.writer = writer
 	return nil
 }
 
@@ -299,7 +394,11 @@ func (log *Log4FileAppender) Flush() {
 }
 
 func (log *Log4FileAppender) Close(isWait bool) {
-	log.Context.context.Quit(isWait)
+	log.Context.closeAppender(isWait)
+}
+
+func (log *Log4FileAppender) WaitClose() {
+	log.Context.waitClose()
 }
 
 func NewLog4ConsoleAppender(name string, Appender *Log4ConfigAppender) *Log4ConsoleAppender {
@@ -333,12 +432,19 @@ func (log *Log4ConsoleAppender) Name() string {
 
 func (log *Log4ConsoleAppender) LogRecord(rec *Log4Record) {
 	recordCountStatAdd(log.Context.nameRecordStart)
-	log.Context.recChan <- rec
+	log.Context.sendRecord(rec)
 	recordCountStatAdd(log.Context.nameRecordEnd)
 }
 
 func (log *Log4ConsoleAppender) Run() {
 	Run(log, &log.Context)
+}
+
+func (log *Log4ConsoleAppender) BufferReset() {
+}
+
+func (log *Log4ConsoleAppender) BufferReopen() error {
+	return nil
 }
 
 func (log *Log4ConsoleAppender) BufferWrite(msg *Msg) error {
@@ -369,7 +475,11 @@ func (log *Log4ConsoleAppender) Flush() {
 }
 
 func (log *Log4ConsoleAppender) Close(isWait bool) {
-	log.Context.context.Quit(isWait)
+	log.Context.closeAppender(isWait)
+}
+
+func (log *Log4ConsoleAppender) WaitClose() {
+	log.Context.waitClose()
 }
 
 func NewLog4Record() *Log4Record {

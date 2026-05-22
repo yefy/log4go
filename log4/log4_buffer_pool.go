@@ -41,6 +41,7 @@ func GetMsg(size int) *Msg {
 			msg := msgPools[index].Get().(*Msg)
 			if msg.RefCount.Load() > 0 {
 				log4Debug("log_tcp_msg GetMsg RefCount > 0, Stack:%s", string(debug.Stack()))
+				panic("log_tcp_msg: Msg reference counter went negative (double Put? or use-after-free?)")
 				continue
 			}
 			msg.Init()
@@ -75,7 +76,7 @@ func (msg *Msg) Init() {
 func (msg *Msg) GetData() []byte {
 	if msg.RefCount.Load() <= 0 {
 		log4Debug("log_tcp_msg GetData RefCount <= 0, msg.Cap:%v, Stack:%s", msg.Cap, string(debug.Stack()))
-		//panic(fmt.Sprintf("log_tcp_msg Clone RefCount <= 0"))
+		panic("log_tcp_msg: Msg reference counter went negative (double Put? or use-after-free?)")
 	}
 	return msg.Bytes()
 }
@@ -83,7 +84,7 @@ func (msg *Msg) GetData() []byte {
 func (msg *Msg) Clone() *Msg {
 	if msg.RefCount.Load() <= 0 {
 		log4Debug("log_tcp_msg Clone RefCount <= 0, msg.Cap:%v, Stack:%s", msg.Cap, string(debug.Stack()))
-		//panic(fmt.Sprintf("log_tcp_msg Clone RefCount <= 0"))
+		panic("log_tcp_msg: Msg reference counter went negative (double Put? or use-after-free?)")
 	}
 	msg.RefCount.Add(1)
 	return msg
@@ -97,6 +98,6 @@ func (msg *Msg) Put() {
 		}
 	} else if RefCount < 0 {
 		log4Debug("log_tcp_msg RefCount < 0, Stack:%s", string(debug.Stack()))
-		//panic(fmt.Sprintf("log_tcp_msg RefCount < 0"))
+		panic("log_tcp_msg: Msg reference counter went negative (double Put? or use-after-free?)")
 	}
 }

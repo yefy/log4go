@@ -133,8 +133,8 @@ func (log4 *Log4) Run(log4Config *Log4Config) error {
 				log4.Close(true)
 			}()
 		}
-		//正常关闭, 不需要大于错误日志
-		return ee.NewCode(-1, nil,"isClose")
+		//正常关闭, 不需要打印错误日志
+		return ee.NewCode(-1, nil, "isClose")
 	}
 	//获取到CloseCompareAndSwap, 需要关闭
 	go func() {
@@ -231,20 +231,20 @@ func (log4 *Log4) waitClose() {
 
 func NewLog4Target(name string) *Log4Target {
 	log4Target := &Log4Target{
-		Name:  name,
-		Level: ERROR,
+		Name:           name,
+		Level:          ERROR,
 		PendingContext: NewWaitGroupContext(),
 	}
 	return log4Target
 }
 
 type Log4Target struct {
-	Name       string
-	Level      Level
-	Logger     *Log4ConfigLogger
-	RootTarget *Log4Target
-	appenders  []Log4Appender
-	PendingContext     *WaitGroupContext
+	Name           string
+	Level          Level
+	Logger         *Log4ConfigLogger
+	RootTarget     *Log4Target
+	appenders      []Log4Appender
+	PendingContext *WaitGroupContext
 }
 
 func (log4Target *Log4Target) GetLevel() Level {
@@ -424,7 +424,7 @@ func Close(isWait bool) {
 		log4 := (*Log4)(GLog4.Load())
 		isCloseCompareAndSwap := log4.CloseCompareAndSwap()
 		time.Sleep(time.Second)
-		if isCloseCompareAndSwap{
+		if isCloseCompareAndSwap {
 			go func() {
 				log4.Close(true)
 				GCtx.Done()

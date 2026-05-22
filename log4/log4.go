@@ -195,9 +195,19 @@ func (log4 *Log4) CloseCompareAndSwap() bool {
 }
 
 func (log4 *Log4) Close(isWait bool) {
-	//这里为什么sleep 2,  在关闭前, log.Info, log.Error 已经得到log4, 正在准备写数据, 如果马上close, 数据就丢失了
-	time.Sleep(time.Second * 2)
 	RecordCountStatAdd(Log4EndCount)
+	//这里为什么sleep 2,  在关闭前, log.Info, log.Error 已经得到log4, 处于Pending状态, 正在准备写数据, 如果马上close, 数据就丢失了
+	//log4.Error(""") -> Target -> rootError -> log4Target.log -> log4Target.PendingContext.Add(1)
+	//oldLog4 := (*Log4)(GLog4.Swap(log4))  这里reopen为了提高性能
+	//这个过程只是hash查找, 非常快, sleep 2, 已经够进入log4Target.PendingContext.Add(1)
+	//为了提高性能, 没加锁, 加锁性能太低了
+	time.Sleep(time.Second * 2)
+	log4.TargetMap.Range(func(_, valueI any) bool {
+		value := valueI.(*Log4Target)
+		value.PendingContext.Wait()
+		return true
+	})
+
 	for _, appender := range log4.appenderMap {
 		appender.Close(isWait)
 	}
@@ -223,6 +233,7 @@ func NewLog4Target(name string) *Log4Target {
 	log4Target := &Log4Target{
 		Name:  name,
 		Level: ERROR,
+		PendingContext: NewWaitGroupContext(),
 	}
 	return log4Target
 }
@@ -233,6 +244,7 @@ type Log4Target struct {
 	Logger     *Log4ConfigLogger
 	RootTarget *Log4Target
 	appenders  []Log4Appender
+	PendingContext     *WaitGroupContext
 }
 
 func (log4Target *Log4Target) GetLevel() Level {
@@ -294,6 +306,9 @@ func (log4Target *Log4Target) rootFine(format string, args ...interface{}) {
 }
 
 func (log4Target *Log4Target) log(skip int, level Level, format string, args ...interface{}) {
+	log4Target.PendingContext.Add(1)
+	defer log4Target.PendingContext.Done()
+
 	if level < log4Target.Level {
 		return
 	}
